@@ -78,8 +78,10 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
       } else if (outcome === 'unsupported') {
         showToast({
           type: 'info',
-          title: 'Manual Install',
-          message: 'Use your browser menu (⋮) or URL bar install icon to add NEXVORA AI.',
+          title: isIOS ? 'Add to Home Screen' : 'Install on Android Phone',
+          message: isIOS
+            ? "Tap Safari's Share icon (box with arrow) at the bottom → tap 'Add to Home Screen'."
+            : "Tap the 3 dots (⋮) in Chrome at top right → tap 'Install app' or 'Add to Home screen'.",
         });
       }
     } catch {
@@ -173,18 +175,20 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
                     </div>
                   </div>
 
-                  {/* 1-Click Install Button if supported */}
-                  {isInstallable && (
-                    <button
-                      type="button"
-                      disabled={isInstalling}
-                      onClick={handleInstallClick}
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-xs font-bold text-slate-950 hover:brightness-110 shadow-lg shadow-cyan-500/20 transition cursor-pointer"
-                    >
-                      <Download className="h-4 w-4 text-slate-950" />
-                      {isInstalling ? 'Installing...' : '1-Click Install NEXVORA AI on This Device'}
-                    </button>
-                  )}
+                  {/* Always-visible Install App button */}
+                  <button
+                    type="button"
+                    disabled={isInstalling}
+                    onClick={handleInstallClick}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-xs font-bold text-slate-950 hover:brightness-110 shadow-lg shadow-cyan-500/20 transition cursor-pointer"
+                  >
+                    <Smartphone className="h-4 w-4 text-slate-950" />
+                    {isInstalling
+                      ? 'Installing...'
+                      : isInstallable
+                      ? '1-Click Install NEXVORA AI on This Phone'
+                      : 'Install NEXVORA AI on Phone (Add to Home Screen)'}
+                  </button>
                 </div>
 
                 {/* Instructions by Device */}
