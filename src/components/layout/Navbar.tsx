@@ -74,9 +74,30 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Right: Currency, Plan, AI Status, User */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* Currency Switcher */}
-          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-900/80 p-0.5 text-xs">
+        <div className="flex items-center space-x-1.5 sm:space-x-3">
+          {/* Mobile Native Currency Picker */}
+          <div className="relative sm:hidden flex items-center rounded-lg border border-slate-800 bg-slate-900/90 px-2 py-1 text-xs">
+            <span className="font-bold text-cyan-400 mr-1">
+              {currencies.find((c) => c.code === currency)?.symbol}
+            </span>
+            <span className="font-semibold text-slate-200">{currency}</span>
+            <ChevronDown className="ml-1 h-3 w-3 text-slate-400" />
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              aria-label="Select currency"
+            >
+              {currencies.map((c) => (
+                <option key={c.code} value={c.code} className="bg-slate-900 text-white">
+                  {c.symbol} {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Desktop Currency Switcher */}
+          <div className="hidden sm:flex items-center rounded-lg border border-slate-800 bg-slate-900/80 p-0.5 text-xs">
             <Globe className="ml-2 hidden h-3.5 w-3.5 text-slate-400 sm:block" />
             {currencies.map((c) => (
               <button
@@ -95,30 +116,32 @@ export const Navbar: React.FC = () => {
             ))}
           </div>
 
-          {/* Visual Theme Switcher */}
-          <ThemeSwitcher variant="compact" />
+          {/* Visual Theme Switcher - Hidden on mobile, accessible in drawer */}
+          <div className="hidden sm:block">
+            <ThemeSwitcher variant="compact" />
+          </div>
 
-          {/* Download & Install App */}
+          {/* Download & Install App - Desktop only */}
           <button
             type="button"
             onClick={() => setIsDownloadModalOpen(true)}
-            className="flex items-center space-x-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:border-cyan-500/50 hover:text-cyan-400 transition"
+            className="hidden md:flex items-center space-x-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:border-cyan-500/50 hover:text-cyan-400 transition"
             title="Download & Install NEXVORA AI"
           >
             <Download className="h-3.5 w-3.5 text-cyan-400" />
-            <span className="hidden sm:inline">Download</span>
+            <span>Download</span>
           </button>
 
           {/* Subscription Tier Badge */}
           <button
             type="button"
             onClick={() => setIsPricingModalOpen(true)}
-            className="flex items-center space-x-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/30 px-2.5 py-1.5 text-xs font-semibold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-900/40"
+            className="flex items-center space-x-1 sm:space-x-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/30 px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-semibold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-900/40"
           >
-            <Zap className="h-3.5 w-3.5 text-cyan-400" />
-            <span>{user?.plan || 'FREE'} PLAN</span>
-            <span className="hidden text-[10px] font-normal text-cyan-400/80 md:inline">
-              • Upgrade
+            <Zap className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+            <span className="text-[11px] sm:text-xs">{user?.plan || 'FREE'}</span>
+            <span className="hidden text-[10px] font-normal text-cyan-400/80 sm:inline">
+              PLAN • Upgrade
             </span>
           </button>
 

@@ -192,7 +192,7 @@ export const MainDashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsDownloadModalOpen(true)}
-              className="flex items-center space-x-2 rounded-xl border border-cyan-500/30 bg-cyan-950/30 px-4 py-2.5 text-xs font-bold text-cyan-300 transition hover:bg-cyan-900/40 hover:border-cyan-400"
+              className="hidden sm:flex items-center space-x-2 rounded-xl border border-cyan-500/30 bg-cyan-950/30 px-4 py-2.5 text-xs font-bold text-cyan-300 transition hover:bg-cyan-900/40 hover:border-cyan-400"
             >
               <Download className="h-4 w-4 text-cyan-400" />
               <span>Download App</span>

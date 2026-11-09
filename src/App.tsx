@@ -16,6 +16,7 @@ import { PricingModal } from './components/pricing/PricingModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
 import { DownloadAppModal } from './components/common/DownloadAppModal';
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { ToastContainer } from './components/common/ToastContainer';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -59,13 +60,14 @@ const AppContent: React.FC = () => {
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto flex flex-col justify-between">
+        <main className="flex-1 overflow-y-auto flex flex-col justify-between pb-16 lg:pb-0">
           <div className="flex-1">
             {renderCurrentView()}
           </div>
           <Footer />
         </main>
       </div>
+      <MobileBottomNav />
       <PricingModal />
       <AuthModal />
       <ShortcutsModal
