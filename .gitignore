@@ -10,4 +10,5 @@ coverage/
 dev-dist/
 .playwright-cli/
 .aistudio/
+server.js
 
