@@ -1,0 +1,6 @@
+{
+  "name": "NEXVORA AI",
+  "description": "Your Business. Your Intelligence. Your Growth. Modern AI-powered business management platform for entrepreneurs, startups, and SMEs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

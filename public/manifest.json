@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "NEXVORA AI",
+  "short_name": "NEXVORA",
+  "description": "Your Business. Your Intelligence. Your Growth. Modern AI-powered business management platform for entrepreneurs, startups, and SMEs.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070b14",
+  "theme_color": "#070b14",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"]
+}

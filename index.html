@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <script>
+      // In AI Studio / Cloud Run proxy, HMR WebSockets on custom ports are disabled by design.
+      // Provide a clean mock socket for 'vite-hmr' so @vite/client initializes without throwing uncaught errors.
+      (function() {
+        if (typeof window === 'undefined') return;
+        var RealWebSocket = window.WebSocket;
+        if (!RealWebSocket) return;
+        function PatchedWebSocket(url, protocols) {
+          var isViteHmr = protocols === 'vite-hmr' || 
+            (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) ||
+            (typeof url === 'string' && (url.indexOf(':24678') !== -1 || url.indexOf('token=') !== -1));
+          if (isViteHmr) {
+            var listeners = {};
+            return {
+              CONNECTING: 0,
+              OPEN: 1,
+              CLOSING: 2,
+              CLOSED: 3,
+              readyState: 1,
+              bufferedAmount: 0,
+              extensions: '',
+              protocol: 'vite-hmr',
+              url: String(url),
+              binaryType: 'blob',
+              send: function() {},
+              close: function() {},
+              addEventListener: function(event, fn) {
+                listeners[event] = listeners[event] || [];
+                listeners[event].push(fn);
+              },
+              removeEventListener: function(event, fn) {
+                if (!listeners[event]) return;
+                listeners[event] = listeners[event].filter(function(cb) { return cb !== fn; });
+              },
+              dispatchEvent: function() { return true; }
+            };
+          }
+          return new RealWebSocket(url, protocols);
+        }
+        PatchedWebSocket.prototype = RealWebSocket.prototype;
+        PatchedWebSocket.CONNECTING = 0;
+        PatchedWebSocket.OPEN = 1;
+        PatchedWebSocket.CLOSING = 2;
+        PatchedWebSocket.CLOSED = 3;
+        window.WebSocket = PatchedWebSocket;
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (event.reason && (
+            (event.reason.message && event.reason.message.indexOf('WebSocket closed without opened') !== -1) ||
+            (event.reason.stack && event.reason.stack.indexOf('@vite/client') !== -1)
+          )) {
+            event.preventDefault();
+          }
+        });
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>NEXVORA AI | Your Business. Your Intelligence. Your Growth.</title>
+    <meta name="description" content="NEXVORA AI is a professional, AI-powered business management platform for entrepreneurs, startups, and SMEs in Nigeria and internationally." />
+    <meta property="og:title" content="NEXVORA AI | Your Business. Your Intelligence. Your Growth." />
+    <meta property="og:description" content="Modern AI-powered business management platform for entrepreneurs, startups, and SMEs in Nigeria and internationally." />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#070b14" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NEXVORA AI" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-[#070b14] text-slate-100 antialiased selection:bg-cyan-500 selection:text-black">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #070b14;
+    color: #f1f5f9;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+  }
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0f1d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Glass & Neon Accents */
+.glass-panel {
+  background: rgba(13, 21, 39, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.1);
+}
+
+.glass-panel-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-panel-hover:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 10px 30px -10px rgba(6, 182, 212, 0.15);
+}
+
+.glow-blue {
+  box-shadow: 0 0 25px -5px rgba(37, 99, 235, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.35);
+}
+
+/* ==============================================================================
+   MIDNIGHT FOREST THEME OVERRIDES (Alternative Dark Mode with Deep Green Accents)
+   ============================================================================== */
+[data-theme="midnight-forest"] {
+  background-color: #051009 !important;
+}
+
+[data-theme="midnight-forest"] body {
+  background-color: #051009 !important;
+  color: #f0fdf4 !important;
+}
+
+[data-theme="midnight-forest"] .bg-\[\#070b14\] {
+  background-color: #051009 !important;
+}
+
+[data-theme="midnight-forest"] .bg-\[\#070c18\] {
+  background-color: #07150c !important;
+}
+
+[data-theme="midnight-forest"] .bg-\[\#080d1a\]\/95 {
+  background-color: rgba(7, 21, 13, 0.95) !important;
+}
+
+[data-theme="midnight-forest"] .bg-\[\#090f1e\],
+[data-theme="midnight-forest"] .bg-\[\#090f1f\],
+[data-theme="midnight-forest"] .bg-\[\#0a1020\] {
+  background-color: #091a10 !important;
+}
+
+[data-theme="midnight-forest"] .bg-\[\#0d162d\],
+[data-theme="midnight-forest"] .bg-\[\#0a1224\] {
+  background-color: #0c2417 !important;
+}
+
+[data-theme="midnight-forest"] .from-\[\#0d172e\] {
+  --tw-gradient-from: #0d2719 var(--tw-gradient-from-position) !important;
+}
+
+[data-theme="midnight-forest"] .via-\[\#091224\] {
+  --tw-gradient-via: #091b12 var(--tw-gradient-via-position) !important;
+}
+
+[data-theme="midnight-forest"] .to-\[\#070b14\] {
+  --tw-gradient-to: #051009 var(--tw-gradient-to-position) !important;
+}
+
+[data-theme="midnight-forest"] .border-slate-800,
+[data-theme="midnight-forest"] .border-slate-800\/80,
+[data-theme="midnight-forest"] .border-slate-800\/60 {
+  border-color: rgba(22, 101, 52, 0.35) !important;
+}
+
+[data-theme="midnight-forest"] .border-slate-700,
+[data-theme="midnight-forest"] .border-slate-700\/80 {
+  border-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+[data-theme="midnight-forest"] .glass-panel {
+  background: rgba(9, 26, 16, 0.75) !important;
+  border-color: rgba(52, 211, 153, 0.15) !important;
+}
+
+[data-theme="midnight-forest"] .text-cyan-400 {
+  color: #34d399 !important; /* Vivid Emerald / Jade */
+}
+
+[data-theme="midnight-forest"] .text-cyan-300 {
+  color: #6ee7b7 !important;
+}
+
+[data-theme="midnight-forest"] .border-cyan-400 {
+  border-color: #34d399 !important;
+}
+
+[data-theme="midnight-forest"] .border-cyan-500\/30 {
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+[data-theme="midnight-forest"] .bg-cyan-500 {
+  background-color: #10b981 !important;
+}
+
+[data-theme="midnight-forest"] .bg-cyan-950\/30,
+[data-theme="midnight-forest"] .bg-cyan-950\/40 {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+}
+
+[data-theme="midnight-forest"] .from-blue-600 {
+  --tw-gradient-from: #059669 var(--tw-gradient-from-position) !important;
+}
+
+[data-theme="midnight-forest"] .via-indigo-600 {
+  --tw-gradient-via: #047857 var(--tw-gradient-via-position) !important;
+}
+
+[data-theme="midnight-forest"] .to-cyan-400,
+[data-theme="midnight-forest"] .to-cyan-500 {
+  --tw-gradient-to: #34d399 var(--tw-gradient-to-position) !important;
+}
+
+[data-theme="midnight-forest"] ::-webkit-scrollbar-track {
+  background: #051009;
+}
+
+[data-theme="midnight-forest"] ::-webkit-scrollbar-thumb {
+  background: #143823;
+}
+
+[data-theme="midnight-forest"] ::-webkit-scrollbar-thumb:hover {
+  background: #1b4b2f;
+}
+
+/* Print styles for Invoice */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
