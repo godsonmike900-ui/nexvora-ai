@@ -15,6 +15,7 @@ import { CurrencyCode } from '../../types';
 import { ThemeSwitcher } from '../common/ThemeSwitcher';
 
 export const Navbar: React.FC = () => {
+  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
   const {
     user,
     currency,
@@ -147,12 +148,14 @@ export const Navbar: React.FC = () => {
 
           {/* User Account / Profile */}
           {user ? (
-            <div className="relative group">
+            <div className="relative">
               <button
                 type="button"
-                className="flex items-center space-x-2 rounded-lg border border-slate-800 bg-slate-900/60 p-1.5 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center space-x-2 rounded-lg border border-slate-800 bg-slate-900/60 p-1.5 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white cursor-pointer"
+                aria-label="User Profile Menu"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-xs font-bold text-white">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-sm">
                   {user.fullName ? user.fullName[0].toUpperCase() : 'U'}
                 </div>
                 <div className="hidden text-left sm:block">
@@ -161,49 +164,72 @@ export const Navbar: React.FC = () => {
                   </div>
                   <div className="text-[10px] text-slate-400">{user.email}</div>
                 </div>
-                <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
+                <ChevronDown className={`hidden h-3.5 w-3.5 text-slate-400 sm:block transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Dropdown Menu */}
-              <div className="invisible absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-800 bg-slate-900/95 py-1.5 shadow-xl backdrop-blur-md transition-all opacity-0 group-hover:visible group-hover:opacity-100 z-50">
-                <div className="px-3 py-2 border-b border-slate-800/80">
-                  <p className="text-xs font-semibold text-white truncate">{user.businessName}</p>
-                  <p className="text-[10px] text-cyan-400 truncate">{user.country} • {user.currency}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveView('settings')}
-                  className="flex w-full items-center px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
-                >
-                  <User className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                  Account & CAC Details
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPricingModalOpen(true)}
-                  className="flex w-full items-center px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
-                >
-                  <Zap className="mr-2 h-3.5 w-3.5 text-cyan-400" />
-                  Subscription Limits
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsDownloadModalOpen(true)}
-                  className="flex w-full items-center px-3 py-2 text-xs text-cyan-300 hover:bg-slate-800 hover:text-cyan-200"
-                >
-                  <Download className="mr-2 h-3.5 w-3.5 text-cyan-400" />
-                  Download &amp; Install App
-                </button>
-                <div className="my-1 border-t border-slate-800" />
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="flex w-full items-center px-3 py-2 text-xs text-rose-400 hover:bg-rose-950/30 hover:text-rose-300"
-                >
-                  <LogOut className="mr-2 h-3.5 w-3.5" />
-                  Sign Out
-                </button>
-              </div>
+              {isUserMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsUserMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 w-52 rounded-2xl border border-slate-800 bg-[#090f22]/95 py-2 shadow-2xl backdrop-blur-xl z-50 animate-fadeIn">
+                    <div className="px-3.5 py-2 border-b border-slate-800/80">
+                      <p className="text-xs font-bold text-white truncate">{user.businessName || user.fullName}</p>
+                      <p className="text-[10px] text-cyan-400 truncate">{user.email}</p>
+                      <span className="inline-block mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-full border border-slate-700">
+                        {user.plan} Tier • {user.currency}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveView('settings');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="flex w-full items-center px-3.5 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
+                    >
+                      <User className="mr-2.5 h-3.5 w-3.5 text-slate-400" />
+                      Account &amp; CAC Details
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPricingModalOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="flex w-full items-center px-3.5 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
+                    >
+                      <Zap className="mr-2.5 h-3.5 w-3.5 text-cyan-400" />
+                      Subscription Limits
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDownloadModalOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="flex w-full items-center px-3.5 py-2 text-xs text-cyan-300 hover:bg-slate-800 hover:text-cyan-200 cursor-pointer"
+                    >
+                      <Download className="mr-2.5 h-3.5 w-3.5 text-cyan-400" />
+                      Download &amp; Install App
+                    </button>
+                    <div className="my-1.5 border-t border-slate-800" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        logout();
+                      }}
+                      className="flex w-full items-center px-3.5 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-950/30 hover:text-rose-300 cursor-pointer"
+                    >
+                      <LogOut className="mr-2.5 h-3.5 w-3.5" />
+                      Sign Out / Switch Account
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <button

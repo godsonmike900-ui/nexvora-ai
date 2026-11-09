@@ -21,6 +21,7 @@ import {
   Shield,
   Loader2,
   Smartphone,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AppTheme, CurrencyCode } from '../../types';
@@ -37,7 +38,7 @@ import {
 } from '../../utils/webauthn';
 
 export const SettingsView: React.FC = () => {
-  const { user, updateProfile, currency, setCurrency, theme, setTheme, systemStatus, refreshStatus, showToast } = useApp();
+  const { user, updateProfile, currency, setCurrency, theme, setTheme, systemStatus, refreshStatus, showToast, logout } = useApp();
 
   const [businessName, setBusinessName] = useState(user?.businessName || '');
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -553,6 +554,26 @@ CREATE POLICY "Users view own profile" ON public.profiles FOR SELECT USING (auth
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Account Session & Sign Out Card */}
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-950/10 p-5 space-y-3">
+            <div className="flex items-center space-x-2 border-b border-rose-500/20 pb-3">
+              <LogOut className="h-4 w-4 text-rose-400" />
+              <h3 className="text-sm font-bold text-white">Active Session &amp; Sign Out</h3>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Signed in as <span className="text-white font-semibold">{user?.fullName || user?.email}</span> ({user?.businessName}).
+              Signing out returns to the NEXVORA onboarding &amp; account creation screen.
+            </p>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex w-full items-center justify-center space-x-2 rounded-xl bg-rose-600/20 border border-rose-500/40 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-600/30 transition cursor-pointer"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sign Out / Switch Account</span>
+            </button>
           </div>
         </div>
       </div>

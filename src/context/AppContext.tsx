@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { api, SystemStatus } from '../services/api';
 import { addToast, removeToast } from '../utils/toastManager';
+import { buildUserProfile, CreateAccountPayload } from '../utils/auth';
 
 export type AppView =
   | 'dashboard'
@@ -60,6 +61,10 @@ interface AppContextType {
   showToast: (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => void;
   dismissToast: (id: string) => void;
   loginAsDemo: () => void;
+  loginWithGoogle: (email?: string, name?: string) => void;
+  loginWithPhone: (phone: string, fullName?: string, businessName?: string) => void;
+  loginWithEmail: (email: string, fullName?: string, businessName?: string) => void;
+  registerNewUser: (payload: CreateAccountPayload) => void;
   loginWithUser: (user: UserProfile) => void;
   logout: () => void;
   refreshStatus: () => Promise<void>;
@@ -337,7 +342,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return null;
     }
     const saved = localStorage.getItem('nexvora_active_user');
-    return saved ? JSON.parse(saved) : DEFAULT_DEMO_USER;
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
   });
 
   const [currency, setCurrencyState] = useState<CurrencyCode>(() => {
@@ -743,6 +755,101 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const loginWithGoogle = (email = 'godsonmike900@gmail.com', name = 'Godson Mike') => {
+    const newUser: UserProfile = {
+      id: `google_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      email,
+      fullName: name,
+      businessName: `${name.split(' ')[0]} Technologies`,
+      businessType: 'B2B Software & Digital Commerce',
+      country: 'Nigeria',
+      currency: 'NGN',
+      plan: 'PRO',
+      theme: 'default',
+      createdAt: new Date().toISOString(),
+    };
+    setUser(newUser);
+    setCurrencyState(newUser.currency);
+    localStorage.setItem('nexvora_active_user', JSON.stringify(newUser));
+    localStorage.removeItem('nexvora_timed_out');
+    localStorage.setItem('nexvora_last_active', Date.now().toString());
+    setIsAuthModalOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Google Sign-In Successful',
+      message: `Welcome to NEXVORA AI, ${newUser.fullName}!`,
+    });
+  };
+
+  const loginWithPhone = (phone: string, fullName = 'Founder', businessName?: string) => {
+    const newUser: UserProfile = {
+      id: `phone_${phone.replace(/[^0-9]/g, '')}`,
+      email: `${phone.replace(/[^0-9]/g, '')}@phone.nexvora.ai`,
+      fullName,
+      phone,
+      businessName: businessName || `${fullName} Ventures Ltd`,
+      businessType: 'Commercial Enterprise',
+      country: 'Nigeria',
+      currency: 'NGN',
+      plan: 'PRO',
+      theme: 'default',
+      createdAt: new Date().toISOString(),
+    };
+    setUser(newUser);
+    setCurrencyState(newUser.currency);
+    localStorage.setItem('nexvora_active_user', JSON.stringify(newUser));
+    localStorage.removeItem('nexvora_timed_out');
+    localStorage.setItem('nexvora_last_active', Date.now().toString());
+    setIsAuthModalOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Mobile Verified',
+      message: `Welcome to NEXVORA AI! Signed in via ${phone}.`,
+    });
+  };
+
+  const loginWithEmail = (email: string, fullName?: string, businessName?: string) => {
+    const computedName = fullName || email.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() || 'Founder';
+    const newUser: UserProfile = {
+      id: `email_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      email,
+      fullName: computedName,
+      businessName: businessName || `${computedName.split(' ')[0]} Enterprise`,
+      businessType: 'Digital Commerce',
+      country: 'Nigeria',
+      currency: 'NGN',
+      plan: 'PRO',
+      theme: 'default',
+      createdAt: new Date().toISOString(),
+    };
+    setUser(newUser);
+    setCurrencyState(newUser.currency);
+    localStorage.setItem('nexvora_active_user', JSON.stringify(newUser));
+    localStorage.removeItem('nexvora_timed_out');
+    localStorage.setItem('nexvora_last_active', Date.now().toString());
+    setIsAuthModalOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Signed In',
+      message: `Welcome back, ${newUser.fullName}!`,
+    });
+  };
+
+  const registerNewUser = (payload: CreateAccountPayload) => {
+    const profile = buildUserProfile(payload);
+    setUser(profile);
+    if (profile.currency) setCurrencyState(profile.currency);
+    localStorage.setItem('nexvora_active_user', JSON.stringify(profile));
+    localStorage.removeItem('nexvora_timed_out');
+    localStorage.setItem('nexvora_last_active', Date.now().toString());
+    setIsAuthModalOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Account Created',
+      message: `Welcome to NEXVORA AI, ${profile.fullName}! Your enterprise workspace is ready.`,
+    });
+  };
+
   const logout = () => {
     setUser(null);
     setInvoices([]);
@@ -753,7 +860,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('nexvora_active_user');
     localStorage.removeItem('nexvora_last_active');
     localStorage.removeItem('nexvora_activities');
-    setIsAuthModalOpen(true);
+    setIsAuthModalOpen(false);
+    showToast({
+      type: 'info',
+      title: 'Signed Out',
+      message: 'You have been safely signed out of NEXVORA AI.',
+    });
   };
 
   return (
@@ -794,6 +906,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         dismissToast,
         loginAsDemo,
+        loginWithGoogle,
+        loginWithPhone,
+        loginWithEmail,
+        registerNewUser,
         loginWithUser,
         logout,
         refreshStatus,

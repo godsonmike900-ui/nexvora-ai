@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Keyboard,
   Download,
+  LogOut,
 } from 'lucide-react';
 import { useApp, AppView } from '../../context/AppContext';
 
@@ -28,6 +29,7 @@ export const Sidebar: React.FC = () => {
     setIsShortcutsModalOpen,
     setIsDownloadModalOpen,
     user,
+    logout,
   } = useApp();
 
   const navigationItems: {
@@ -166,6 +168,21 @@ export const Sidebar: React.FC = () => {
             <span className="font-semibold">Download App</span>
           </div>
           <span className="text-[10px] text-cyan-400 font-medium">PWA</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsMobileNavOpen(false);
+            logout();
+          }}
+          className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[11px] text-rose-400 hover:bg-rose-950/30 hover:text-rose-300 transition cursor-pointer"
+        >
+          <div className="flex items-center space-x-2">
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Sign Out / Switch</span>
+          </div>
+          <span className="text-[10px] text-rose-400/80">Exit</span>
         </button>
 
         <div className="flex items-center justify-between px-2 text-[11px] text-slate-500">

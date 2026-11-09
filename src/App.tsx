@@ -18,10 +18,12 @@ import { ShortcutsModal } from './components/common/ShortcutsModal';
 import { DownloadAppModal } from './components/common/DownloadAppModal';
 import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { ToastContainer } from './components/common/ToastContainer';
+import { AuthScreen } from './components/auth/AuthScreen';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 const AppContent: React.FC = () => {
   const {
+    user,
     activeView,
     isShortcutsModalOpen,
     setIsShortcutsModalOpen,
@@ -29,6 +31,20 @@ const AppContent: React.FC = () => {
     setIsDownloadModalOpen,
   } = useApp();
   useKeyboardShortcuts();
+
+  // If unauthenticated, display the dedicated mobile & web onboarding interface
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#050811] text-slate-100 font-sans selection:bg-cyan-500 selection:text-black">
+        <AuthScreen />
+        <DownloadAppModal
+          isOpen={isDownloadModalOpen}
+          onClose={() => setIsDownloadModalOpen(false)}
+        />
+        <ToastContainer />
+      </div>
+    );
+  }
 
   const renderCurrentView = () => {
     switch (activeView) {
