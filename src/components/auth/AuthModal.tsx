@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Sparkles,
@@ -10,12 +10,23 @@ import {
   ArrowRight,
   Shield,
   AlertCircle,
+  Fingerprint,
+  ScanFace,
+  Loader2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { UserProfile } from '../../types';
+import {
+  isWebAuthnSupported,
+  isPlatformAuthenticatorAvailable,
+  authenticateWithBiometrics,
+  getStoredBiometricCredential,
+  detectPlatformAuthenticatorName,
+  StoredBiometricCredential,
+} from '../../utils/webauthn';
 
 export const AuthModal: React.FC = () => {
-  const { isAuthModalOpen, setIsAuthModalOpen, loginAsDemo, updateProfile } = useApp();
+  const { isAuthModalOpen, setIsAuthModalOpen, loginAsDemo, loginWithUser, updateProfile } = useApp();
 
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
@@ -31,6 +42,58 @@ export const AuthModal: React.FC = () => {
     }
     return null;
   });
+
+  // WebAuthn Biometric States
+  const [hasPlatformAuthenticator, setHasPlatformAuthenticator] = useState(false);
+  const [storedBio, setStoredBio] = useState<StoredBiometricCredential | null>(null);
+  const [isVerifyingBio, setIsVerifyingBio] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthModalOpen) return;
+    const initBiometrics = async () => {
+      if (isWebAuthnSupported()) {
+        const available = await isPlatformAuthenticatorAvailable();
+        setHasPlatformAuthenticator(available);
+        const stored = getStoredBiometricCredential();
+        setStoredBio(stored);
+      }
+    };
+    initBiometrics();
+  }, [isAuthModalOpen]);
+
+  const handleBiometricAuth = async () => {
+    setIsVerifyingBio(true);
+    setBioError(null);
+    try {
+      const result = await authenticateWithBiometrics(storedBio?.credentialId);
+      if (result.success) {
+        const activeEmail = storedBio?.userEmail || 'founder@nexvora.ai';
+        const activeName = storedBio?.userDisplayName || 'Godson Mike';
+        const userObj: UserProfile = {
+          id: storedBio?.userId || 'founder_demo_01',
+          email: activeEmail,
+          fullName: activeName,
+          businessName: `${activeName.split(' ')[0]} Enterprise`,
+          businessType: 'B2B Software & Digital Commerce',
+          country: 'Nigeria',
+          currency: 'NGN',
+          plan: 'PRO',
+          createdAt: new Date().toISOString(),
+        };
+        loginWithUser(userObj);
+      }
+    } catch (err: any) {
+      console.warn('Biometric verification cancelled or error:', err);
+      if (err.name === 'NotAllowedError') {
+        setBioError('Biometric prompt was cancelled or timed out. Tap again to retry.');
+      } else {
+        setBioError(err.message || 'Biometric verification failed. Please try password or demo login.');
+      }
+    } finally {
+      setIsVerifyingBio(false);
+    }
+  };
 
   if (!isAuthModalOpen) return null;
 
@@ -116,12 +179,54 @@ export const AuthModal: React.FC = () => {
           </p>
         </div>
 
+        {/* WebAuthn Biometric 1-Tap Sign In */}
+        {mode === 'login' && hasPlatformAuthenticator && (
+          <div className="mt-5 space-y-2">
+            <button
+              type="button"
+              disabled={isVerifyingBio}
+              onClick={handleBiometricAuth}
+              className="flex w-full items-center justify-center space-x-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 via-blue-600/20 to-indigo-600/20 border border-cyan-400/50 py-3 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/30 hover:border-cyan-300 shadow-lg shadow-cyan-500/10 cursor-pointer disabled:opacity-50"
+            >
+              {isVerifyingBio ? (
+                <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+              ) : (
+                <Fingerprint className="h-4 w-4 text-cyan-400" />
+              )}
+              <span>
+                {isVerifyingBio
+                  ? 'Verifying Biometric Sensor...'
+                  : storedBio
+                  ? `Sign in with ${storedBio.deviceName || 'Biometrics'} (${storedBio.userEmail})`
+                  : '1-Tap Biometric Sign In (Touch ID / Fingerprint / Face)'}
+              </span>
+            </button>
+            {storedBio && (
+              <p className="text-[10px] text-center text-slate-400">
+                Key registered for <span className="text-cyan-400 font-medium">{storedBio.userEmail}</span>
+              </p>
+            )}
+            {bioError && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-2.5 text-[11px] text-rose-300 flex items-center justify-between">
+                <span>{bioError}</span>
+                <button
+                  type="button"
+                  onClick={() => setBioError(null)}
+                  className="text-slate-400 hover:text-white ml-2 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 1-Click Demo Founder Login Button */}
-        <div className="mt-5">
+        <div className="mt-3">
           <button
             type="button"
             onClick={loginAsDemo}
-            className="flex w-full items-center justify-center space-x-2 rounded-xl bg-cyan-500/15 border border-cyan-500/40 py-2.5 text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/25"
+            className="flex w-full items-center justify-center space-x-2 rounded-xl bg-slate-900/80 border border-slate-700/80 py-2.5 text-xs font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white"
           >
             <Sparkles className="h-4 w-4 text-cyan-400" />
             <span>Instant Demo Founder Login (Pre-Loaded Data)</span>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   Building,
@@ -15,13 +15,29 @@ import {
   Sparkles,
   Server,
   Palette,
+  Fingerprint,
+  ScanFace,
+  Trash2,
+  Shield,
+  Loader2,
+  Smartphone,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AppTheme, CurrencyCode } from '../../types';
 import { ThemeSwitcher } from '../common/ThemeSwitcher';
+import {
+  isWebAuthnSupported,
+  isPlatformAuthenticatorAvailable,
+  registerBiometricAuthenticator,
+  authenticateWithBiometrics,
+  getStoredBiometricCredential,
+  removeBiometricCredential,
+  detectPlatformAuthenticatorName,
+  StoredBiometricCredential,
+} from '../../utils/webauthn';
 
 export const SettingsView: React.FC = () => {
-  const { user, updateProfile, currency, setCurrency, theme, setTheme, systemStatus, refreshStatus } = useApp();
+  const { user, updateProfile, currency, setCurrency, theme, setTheme, systemStatus, refreshStatus, showToast } = useApp();
 
   const [businessName, setBusinessName] = useState(user?.businessName || '');
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -40,6 +56,88 @@ export const SettingsView: React.FC = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [sqlCopied, setSqlCopied] = useState(false);
+
+  // WebAuthn Biometric Management State
+  const [isBioSupported, setIsBioSupported] = useState(false);
+  const [hasPlatformAuth, setHasPlatformAuth] = useState(false);
+  const [storedBio, setStoredBio] = useState<StoredBiometricCredential | null>(null);
+  const [isEnrollingBio, setIsEnrollingBio] = useState(false);
+  const [isTestingBio, setIsTestingBio] = useState(false);
+
+  useEffect(() => {
+    const initBiometrics = async () => {
+      const supported = isWebAuthnSupported();
+      setIsBioSupported(supported);
+      if (supported) {
+        const platform = await isPlatformAuthenticatorAvailable();
+        setHasPlatformAuth(platform);
+        setStoredBio(getStoredBiometricCredential());
+      }
+    };
+    initBiometrics();
+  }, []);
+
+  const handleEnrollBiometrics = async () => {
+    setIsEnrollingBio(true);
+    try {
+      const cred = await registerBiometricAuthenticator({
+        userId: user?.id || `user_${Date.now()}`,
+        userEmail: user?.email || 'founder@nexvora.ai',
+        userDisplayName: user?.fullName || 'Godson Mike',
+      });
+      setStoredBio(cred);
+      showToast({
+        type: 'success',
+        title: 'Biometrics Enrolled!',
+        message: `${cred.deviceName} is now linked for 1-tap sign in.`,
+      });
+    } catch (err: any) {
+      console.warn('Biometric registration error:', err);
+      showToast({
+        type: 'error',
+        title: 'Enrollment Cancelled',
+        message: err.name === 'NotAllowedError'
+          ? 'Sensor prompt was cancelled or timed out.'
+          : (err.message || 'Could not register biometric key.'),
+      });
+    } finally {
+      setIsEnrollingBio(false);
+    }
+  };
+
+  const handleTestBiometrics = async () => {
+    setIsTestingBio(true);
+    try {
+      const res = await authenticateWithBiometrics(storedBio?.credentialId);
+      if (res.success) {
+        showToast({
+          type: 'success',
+          title: 'Biometric Verified!',
+          message: 'Hardware sensor successfully authenticated your identity.',
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Verification Failed',
+        message: err.name === 'NotAllowedError'
+          ? 'Biometric verification cancelled.'
+          : (err.message || 'Sensor verification failed.'),
+      });
+    } finally {
+      setIsTestingBio(false);
+    }
+  };
+
+  const handleRemoveBiometrics = () => {
+    removeBiometricCredential();
+    setStoredBio(null);
+    showToast({
+      type: 'info',
+      title: 'Biometric Key Removed',
+      message: 'Hardware key removed from this device. You can re-enroll anytime.',
+    });
+  };
 
   const sampleSchema = `-- NEXVORA AI Production Supabase Schema
 -- RLS Enabled Tables: profiles, invoices, transactions, ai_generations
@@ -295,6 +393,97 @@ CREATE POLICY "Users view own profile" ON public.profiles FOR SELECT USING (auth
 
         {/* Right Info: 4 cols */}
         <div className="lg:col-span-4 space-y-6">
+          {/* WebAuthn Biometric Security & Passkeys */}
+          <div className="rounded-2xl border border-cyan-500/30 bg-[#090f1f] p-5 space-y-4 shadow-xl shadow-cyan-500/5">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div className="flex items-center space-x-2">
+                <Fingerprint className="h-5 w-5 text-cyan-400" />
+                <h3 className="text-sm font-bold text-white">Biometrics & Passkeys</h3>
+              </div>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                  hasPlatformAuth
+                    ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-300'
+                    : 'border-slate-700 bg-slate-900 text-slate-400'
+                }`}
+              >
+                <span
+                  className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+                    hasPlatformAuth ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                  }`}
+                />
+                {hasPlatformAuth ? 'Sensor Active' : 'Ready'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Use WebAuthn hardware-backed biometrics (Fingerprint, Touch ID, Face ID) for instant, passwordless sign in on your phone or laptop.
+            </p>
+
+            {storedBio ? (
+              <div className="space-y-3 rounded-xl border border-cyan-500/20 bg-cyan-950/15 p-3.5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center space-x-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                      <span className="text-xs font-bold text-white">{storedBio.deviceName}</span>
+                    </div>
+                    <p className="text-[11px] text-cyan-300">
+                      Enrolled: <span className="text-slate-200">{storedBio.userEmail}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      Algorithm: ES256 • ID: {storedBio.credentialId.slice(0, 16)}...
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveBiometrics}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition"
+                    title="Remove Biometric Key"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-2 pt-1 border-t border-cyan-500/20">
+                  <button
+                    type="button"
+                    disabled={isTestingBio}
+                    onClick={handleTestBiometrics}
+                    className="flex flex-1 items-center justify-center space-x-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/40 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/30 transition disabled:opacity-50"
+                  >
+                    {isTestingBio ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                    ) : (
+                      <ScanFace className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                    <span>Test Sensor Verification</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  disabled={isEnrollingBio}
+                  onClick={handleEnrollBiometrics}
+                  className="flex w-full items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-2.5 text-xs font-bold text-slate-950 hover:brightness-110 shadow-lg shadow-cyan-500/20 transition cursor-pointer disabled:opacity-50"
+                >
+                  {isEnrollingBio ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                  ) : (
+                    <Fingerprint className="h-4 w-4 text-slate-950" />
+                  )}
+                  <span>
+                    {isEnrollingBio
+                      ? 'Touch Fingerprint Sensor...'
+                      : 'Enroll This Device (Fingerprint / Face ID)'}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* System Diagnostics */}
           <div className="rounded-2xl border border-slate-800 bg-[#090f1f] p-5 space-y-3">
             <div className="flex items-center space-x-2 border-b border-slate-800/80 pb-3">

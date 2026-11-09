@@ -60,6 +60,7 @@ interface AppContextType {
   showToast: (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => void;
   dismissToast: (id: string) => void;
   loginAsDemo: () => void;
+  loginWithUser: (user: UserProfile) => void;
   logout: () => void;
   refreshStatus: () => Promise<void>;
 }
@@ -728,6 +729,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const loginWithUser = (targetUser: UserProfile) => {
+    setUser(targetUser);
+    if (targetUser.currency) setCurrency(targetUser.currency);
+    localStorage.setItem('nexvora_active_user', JSON.stringify(targetUser));
+    localStorage.removeItem('nexvora_timed_out');
+    localStorage.setItem('nexvora_last_active', Date.now().toString());
+    setIsAuthModalOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Biometric Authenticated',
+      message: `Welcome back, ${targetUser.fullName || targetUser.businessName || 'Founder'}!`,
+    });
+  };
+
   const logout = () => {
     setUser(null);
     setInvoices([]);
@@ -779,6 +794,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         dismissToast,
         loginAsDemo,
+        loginWithUser,
         logout,
         refreshStatus,
       }}
