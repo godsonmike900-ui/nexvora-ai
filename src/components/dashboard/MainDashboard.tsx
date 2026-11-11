@@ -20,6 +20,16 @@ import {
   Cpu,
   ShieldCheck,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 import { useApp } from '../../context/AppContext';
 import {
   calculateExpensesTotals,
@@ -27,6 +37,7 @@ import {
   calculateSalesTotals,
   formatCurrency,
 } from '../../utils/calculations';
+import { generateMonthlyTrend } from '../../utils/analyticsCharts';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
 import { ActivityLog } from './ActivityLog';
 
@@ -49,6 +60,17 @@ export const MainDashboard: React.FC = () => {
   const totalExpenses = calculateExpensesTotals(transactions, currency);
   const netProfit = calculateNetProfit(totalRevenue, totalExpenses);
   const profitMargin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+
+  // Active Invoices calculations
+  const activeInvoices = invoices.filter((i) => i.status === 'pending' || i.status === 'draft');
+  const activeInvoicesCount = activeInvoices.length;
+  const activeInvoicesTotal = activeInvoices.reduce(
+    (sum, inv) => sum + (inv.currency === currency ? inv.total : 0),
+    0
+  );
+
+  // Monthly revenue vs expenses trajectory
+  const monthlyTrendData = generateMonthlyTrend(transactions, currency);
 
   // Recent Invoices (sorted newest first)
   const recentInvoices = invoices.slice(0, 4);
@@ -224,7 +246,7 @@ export const MainDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Top KPI Cards */}
+      {/* 2. Top Summary KPI Cards (Total Revenue, Total Expenses, Profit Margin, Active Invoices) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Revenue */}
         <div className="rounded-2xl border border-slate-800 bg-[#0a1020] p-5 shadow-sm transition hover:border-slate-700">
@@ -254,47 +276,131 @@ export const MainDashboard: React.FC = () => {
             {formatCurrency(totalExpenses, currency)}
           </div>
           <div className="mt-2 flex items-center text-xs text-rose-400">
-            <span>Operational & inventory costs</span>
+            <span>Operational &amp; inventory costs</span>
           </div>
         </div>
 
-        {/* Estimated Net Profit */}
+        {/* Profit Margin */}
         <div className="rounded-2xl border border-slate-800 bg-[#0a1020] p-5 shadow-sm transition hover:border-slate-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Estimated Net Profit</span>
+            <span className="text-xs font-semibold text-slate-400">Profit Margin</span>
             <div className={`rounded-lg p-2 ${netProfit >= 0 ? 'bg-cyan-500/10 text-cyan-400' : 'bg-rose-500/10 text-rose-400'}`}>
               <TrendingUp className="h-4 w-4" />
             </div>
           </div>
-          <div className={`mt-3 text-2xl font-black ${netProfit >= 0 ? 'text-white' : 'text-rose-400'}`}>
-            {formatCurrency(netProfit, currency)}
+          <div className="mt-3 text-2xl font-black text-cyan-400">
+            {profitMargin}%
           </div>
           <div className="mt-2 flex items-center text-xs text-slate-400">
-            <span className="font-semibold text-cyan-400 mr-1">{profitMargin}%</span> profit margin
+            <span className="font-semibold text-slate-200 mr-1">Net:</span> {formatCurrency(netProfit, currency)}
           </div>
         </div>
 
-        {/* AI Actions & Tier */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0a1020] p-5 shadow-sm transition hover:border-slate-700">
+        {/* Active Invoices */}
+        <div
+          onClick={() => setActiveView('invoices')}
+          className="rounded-2xl border border-slate-800 bg-[#0a1020] p-5 shadow-sm transition hover:border-cyan-500/40 cursor-pointer group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">AI Intelligence Tier</span>
-            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400">
-              <Bot className="h-4 w-4" />
+            <span className="text-xs font-semibold text-slate-400 group-hover:text-cyan-300">Active Invoices</span>
+            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-400">
+              <FileText className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-2xl font-black text-white">{user?.plan || 'PRO'}</span>
-            <span className="text-xs text-cyan-400">Unlimited Models</span>
+          <div className="mt-3 text-2xl font-black text-white">
+            {activeInvoicesCount} <span className="text-xs font-semibold text-amber-400">Pending</span>
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-            <span>Gemini 3.8 Flash Engine</span>
+          <div className="mt-2 flex items-center text-xs text-slate-400">
+            <span>{formatCurrency(activeInvoicesTotal, currency)} pending collection</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Trend Line of Monthly Revenue vs Expenses (Recharts) */}
+      <div className="rounded-2xl border border-slate-800 bg-[#0a1020] p-5 lg:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800/80 gap-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="h-4 w-4 text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">Monthly Revenue vs Expenses Trajectory</h3>
+              <span className="rounded-full bg-cyan-950 border border-cyan-800/60 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
+                Recharts Live
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Visual cash flow trajectory and profit margin curve across {currency}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
             <button
-              onClick={() => setIsPricingModalOpen(true)}
-              className="text-cyan-400 hover:underline font-medium"
+              type="button"
+              onClick={() => setActiveView('analytics')}
+              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center space-x-1 cursor-pointer"
             >
-              View limits
+              <span>View Full Analytics</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
           </div>
+        </div>
+
+        <div className="h-72 w-full pt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="dashboardRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="dashboardExpenseGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+              <XAxis dataKey="month" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <YAxis
+                stroke="#64748b"
+                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                tickFormatter={(val) =>
+                  val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val
+                }
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#090f22',
+                  borderColor: '#334155',
+                  borderRadius: '0.75rem',
+                  color: '#fff',
+                  fontSize: '12px',
+                }}
+                formatter={(val: any, name: any) => [
+                  formatCurrency(Number(val), currency),
+                  name === 'revenue' ? 'Revenue' : 'Expenses',
+                ]}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue"
+                stroke="#06b6d4"
+                strokeWidth={2.5}
+                fill="url(#dashboardRevenueGrad)"
+              />
+              <Area
+                type="monotone"
+                dataKey="expenses"
+                name="Expenses"
+                stroke="#f43f5e"
+                strokeWidth={2}
+                fill="url(#dashboardExpenseGrad)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

@@ -14,19 +14,113 @@ import {
   Building,
   DollarSign,
   X,
+  CreditCard,
+  Link2,
+  Copy,
+  Check,
+  ExternalLink,
+  Zap,
+  Loader2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CurrencyCode, Invoice, InvoiceItem, InvoiceStatus } from '../../types';
 import { calculateInvoiceTotals, formatCurrency } from '../../utils/calculations';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
+import { generateCheckoutUrl, generatePaymentReference, PaymentProvider, getSupportedProvidersForCurrency } from '../../utils/payments';
+import { triggerLocalPush, createPaymentReceivedAlert } from '../../utils/notifications';
 
 export const InvoiceManagerView: React.FC = () => {
-  const { user, invoices, saveInvoice, deleteInvoice, currency } = useApp();
+  const { user, invoices, saveInvoice, deleteInvoice, saveTransaction, currency, showToast } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+
+  // Online Payment State
+  const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null);
+  const [selectedGateway, setSelectedGateway] = useState<PaymentProvider>('paystack');
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentSuccessData, setPaymentSuccessData] = useState<{ ref: string; amount: string } | null>(null);
+
+  const handleOpenPaymentModal = (inv: Invoice) => {
+    setPaymentModalInvoice(inv);
+    const supported = getSupportedProvidersForCurrency(inv.currency);
+    setSelectedGateway(supported[0] || 'paystack');
+    setPaymentSuccessData(null);
+    setIsLinkCopied(false);
+  };
+
+  const handleCopyPaymentLink = () => {
+    if (!paymentModalInvoice) return;
+    const link = generateCheckoutUrl(paymentModalInvoice, selectedGateway);
+    navigator.clipboard.writeText(link);
+    setIsLinkCopied(true);
+    setTimeout(() => setIsLinkCopied(false), 2000);
+    showToast({
+      type: 'success',
+      title: 'Payment Link Copied',
+      message: `Direct checkout link for ${paymentModalInvoice.invoiceNumber} copied.`,
+    });
+  };
+
+  const handleSimulatePayment = async () => {
+    if (!paymentModalInvoice || !user) return;
+    setIsProcessingPayment(true);
+
+    setTimeout(async () => {
+      const updatedInvoice: Invoice = {
+        ...paymentModalInvoice,
+        status: 'paid',
+      };
+      await saveInvoice(updatedInvoice);
+
+      const ref = generatePaymentReference(paymentModalInvoice.id, selectedGateway);
+      await saveTransaction({
+        id: `tx-pay-${Date.now()}`,
+        userId: user.id,
+        type: 'sale',
+        title: `Payment Received - ${paymentModalInvoice.clientName}`,
+        amount: paymentModalInvoice.total,
+        currency: paymentModalInvoice.currency,
+        category: 'Services',
+        date: new Date().toISOString().split('T')[0],
+        paymentMethod:
+          selectedGateway === 'paystack'
+            ? 'Card'
+            : selectedGateway === 'flutterwave'
+            ? 'USSD/Mobile Money'
+            : 'Card',
+        clientOrVendor: paymentModalInvoice.clientName,
+        reference: ref,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Trigger Web Push Notification alert
+      triggerLocalPush(
+        createPaymentReceivedAlert(
+          paymentModalInvoice.clientName,
+          formatCurrency(paymentModalInvoice.total, paymentModalInvoice.currency)
+        )
+      );
+
+      setIsProcessingPayment(false);
+      setPaymentSuccessData({
+        ref,
+        amount: formatCurrency(paymentModalInvoice.total, paymentModalInvoice.currency),
+      });
+
+      showToast({
+        type: 'success',
+        title: 'Payment Collected',
+        message: `${paymentModalInvoice.clientName} paid ${formatCurrency(
+          paymentModalInvoice.total,
+          paymentModalInvoice.currency
+        )} via ${selectedGateway.toUpperCase()}`,
+      });
+    }, 700);
+  };
 
   // Form State for New / Edit Invoice
   const [invoiceNumber, setInvoiceNumber] = useState(`NEX-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -280,7 +374,16 @@ export const InvoiceManagerView: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                      <div className="flex items-center justify-end space-x-1.5 sm:space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPaymentModal(inv)}
+                          className="flex items-center space-x-1 rounded-lg px-2 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition cursor-pointer"
+                          title="Collect Payment Online (Paystack / Stripe / Transfer)"
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          <span className="hidden md:inline">Pay Online</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => user && generateInvoicePDF(inv, user)}
@@ -604,6 +707,203 @@ export const InvoiceManagerView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ONLINE PAYMENT & CHECKOUT MODAL */}
+      {paymentModalInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-[#090f22] p-6 sm:p-8 shadow-2xl animate-fadeIn">
+            <button
+              type="button"
+              onClick={() => {
+                setPaymentModalInvoice(null);
+                setPaymentSuccessData(null);
+              }}
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">Collect Payment Online</h3>
+                <p className="text-xs text-slate-400">
+                  Direct gateway checkout for{' '}
+                  <span className="font-semibold text-cyan-400 font-mono">
+                    {paymentModalInvoice.invoiceNumber}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {paymentSuccessData ? (
+              /* Payment Success Screen */
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-6 text-center space-y-4">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                  <CheckCircle2 className="h-7 w-7" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white">Payment Successfully Verified!</h4>
+                  <p className="text-xs text-emerald-300 mt-1">
+                    {paymentSuccessData.amount} received from {paymentModalInvoice.clientName}.
+                  </p>
+                  <p className="text-[11px] font-mono text-slate-400 mt-1">
+                    Receipt Reference: {paymentSuccessData.ref}
+                  </p>
+                </div>
+                <div className="pt-2 flex justify-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (user) {
+                        generateInvoicePDF(
+                          { ...paymentModalInvoice, status: 'paid' },
+                          user
+                        );
+                      }
+                    }}
+                    className="flex items-center space-x-1.5 rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white border border-slate-700"
+                  >
+                    <Download className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Download Paid Receipt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentModalInvoice(null);
+                      setPaymentSuccessData(null);
+                    }}
+                    className="rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-500 px-5 py-2 text-xs font-bold text-slate-950 hover:opacity-90"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Payment Checkout Form */
+              <div className="space-y-5">
+                {/* Invoice Summary Pill */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Client
+                    </span>
+                    <span className="text-sm font-bold text-white">
+                      {paymentModalInvoice.clientName}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Amount Due
+                    </span>
+                    <span className="text-base font-black text-cyan-400">
+                      {formatCurrency(paymentModalInvoice.total, paymentModalInvoice.currency)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Gateway Selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-2">
+                    Payment Gateway
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['paystack', 'flutterwave', 'stripe'] as PaymentProvider[]).map((gw) => (
+                      <button
+                        key={gw}
+                        type="button"
+                        onClick={() => setSelectedGateway(gw)}
+                        className={`rounded-xl py-2.5 px-3 text-xs font-bold border transition cursor-pointer flex flex-col items-center justify-center space-y-1 ${
+                          selectedGateway === gw
+                            ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-sm'
+                            : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="capitalize">{gw}</span>
+                        <span className="text-[9px] font-normal text-slate-400">
+                          {gw === 'paystack'
+                            ? 'NGN / USD / Cards'
+                            : gw === 'flutterwave'
+                            ? 'Pan-Africa & USSD'
+                            : 'Global & Stripe'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Direct Shareable Link */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Client Direct Checkout Link
+                  </label>
+                  <div className="flex space-x-2">
+                    <div className="relative flex-1">
+                      <Link2 className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        type="text"
+                        readOnly
+                        value={generateCheckoutUrl(paymentModalInvoice, selectedGateway)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900/90 py-2 pl-9 pr-3 font-mono text-[11px] text-slate-300 select-all outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyPaymentLink}
+                      className="flex items-center space-x-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-semibold text-white hover:bg-slate-700 border border-slate-700 transition cursor-pointer"
+                    >
+                      {isLinkCopied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5 text-slate-400" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Send this link via WhatsApp, Email, or SMS for immediate client payment.
+                  </p>
+                </div>
+
+                {/* Instant Simulation Action */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isProcessingPayment}
+                    onClick={handleSimulatePayment}
+                    className="w-full flex items-center justify-center space-x-2 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:opacity-95 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isProcessingPayment ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                        <span>Verifying with {selectedGateway.toUpperCase()}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4" />
+                        <span>
+                          Simulate Client Instant Payment ({formatCurrency(paymentModalInvoice.total, paymentModalInvoice.currency)})
+                        </span>
+                      </>
+                    )}
+                  </button>
+                  <p className="text-[10px] text-center text-slate-400 mt-2">
+                    Automatically marks invoice as Paid, records cash inflow, and sends push alert.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
