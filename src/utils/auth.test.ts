@@ -9,6 +9,10 @@ import {
   generateOtpCode,
   buildUserProfile,
   SUPPORTED_DIAL_CODES,
+  findAccountByEmail,
+  verifyEmailPassword,
+  registerNewAccount,
+  verifyPhoneAccount,
 } from './auth';
 
 test('isValidEmail validates emails correctly', () => {
@@ -77,3 +81,90 @@ test('SUPPORTED_DIAL_CODES contains Nigeria, US, UK, and European codes', () => 
   assert.ok(SUPPORTED_DIAL_CODES.some((c) => c.code === '+1'));
   assert.ok(SUPPORTED_DIAL_CODES.some((c) => c.code === '+44'));
 });
+
+test('findAccountByEmail finds pre-registered accounts', () => {
+  const godson = findAccountByEmail('godsonmike900@gmail.com');
+  assert.ok(godson);
+  assert.strictEqual(godson?.fullName, 'Godson Mike');
+
+  const notFound = findAccountByEmail('unregistered_stranger_123@gmail.com');
+  assert.strictEqual(notFound, undefined);
+});
+
+test('verifyEmailPassword strictly rejects unregistered accounts with NOT_FOUND', () => {
+  const result = verifyEmailPassword('nobody_registered_here@test.com', 'secret123');
+  assert.strictEqual(result.success, false);
+  assert.strictEqual(result.errorReason, 'NOT_FOUND');
+  assert.strictEqual(result.account, undefined);
+});
+
+test('verifyEmailPassword rejects incorrect password for registered account with WRONG_PASSWORD', () => {
+  const result = verifyEmailPassword('godsonmike900@gmail.com', 'completely_wrong_pass');
+  assert.strictEqual(result.success, false);
+  assert.strictEqual(result.errorReason, 'WRONG_PASSWORD');
+});
+
+test('verifyEmailPassword authenticates valid registered credentials', () => {
+  const result = verifyEmailPassword('godsonmike900@gmail.com', 'nexvora2026');
+  assert.strictEqual(result.success, true);
+  assert.ok(result.account);
+  assert.strictEqual(result.account?.email, 'godsonmike900@gmail.com');
+});
+
+test('registerNewAccount rejects existing emails with ALREADY_EXISTS', () => {
+  const result = registerNewAccount(
+    {
+      fullName: 'Godson Mike Duplicate',
+      email: 'godsonmike900@gmail.com',
+    },
+    'newpassword123'
+  );
+  assert.strictEqual(result.success, false);
+  assert.strictEqual(result.errorReason, 'ALREADY_EXISTS');
+});
+
+test('registerNewAccount rejects passwords under 6 characters with WEAK_PASSWORD', () => {
+  const result = registerNewAccount(
+    {
+      fullName: 'New User',
+      email: 'newuser1@example.com',
+    },
+    '123'
+  );
+  assert.strictEqual(result.success, false);
+  assert.strictEqual(result.errorReason, 'WEAK_PASSWORD');
+});
+
+test('registerNewAccount registers brand new user and allows subsequent login', () => {
+  const newEmail = `brand_new_founder_${Date.now()}@testcorp.ng`;
+  const regResult = registerNewAccount(
+    {
+      fullName: 'Chidi Okafor',
+      email: newEmail,
+      businessName: 'Okafor Logistics Global',
+      currency: 'NGN',
+    },
+    'SecurePass998!'
+  );
+
+  assert.strictEqual(regResult.success, true);
+  assert.ok(regResult.account);
+  assert.strictEqual(regResult.account?.fullName, 'Chidi Okafor');
+
+  // Verify that subsequent sign-in with wrong password fails
+  const badLogin = verifyEmailPassword(newEmail, 'wrongPassword');
+  assert.strictEqual(badLogin.success, false);
+  assert.strictEqual(badLogin.errorReason, 'WRONG_PASSWORD');
+
+  // Verify that subsequent sign-in with correct password succeeds
+  const goodLogin = verifyEmailPassword(newEmail, 'SecurePass998!');
+  assert.strictEqual(goodLogin.success, true);
+  assert.strictEqual(goodLogin.account?.businessName, 'Okafor Logistics Global');
+});
+
+test('verifyPhoneAccount rejects unregistered phone numbers', () => {
+  const result = verifyPhoneAccount('+2349999999999');
+  assert.strictEqual(result.success, false);
+  assert.strictEqual(result.errorReason, 'NOT_FOUND');
+});
+

@@ -11,7 +11,13 @@ import {
 } from '../types';
 import { api, SystemStatus } from '../services/api';
 import { addToast, removeToast } from '../utils/toastManager';
-import { buildUserProfile, CreateAccountPayload } from '../utils/auth';
+import {
+  buildUserProfile,
+  CreateAccountPayload,
+  findAccountByEmail,
+  accountToUserProfile,
+  registerNewAccount,
+} from '../utils/auth';
 
 export type AppView =
   | 'dashboard'
@@ -64,7 +70,7 @@ interface AppContextType {
   loginWithGoogle: (email?: string, name?: string) => void;
   loginWithPhone: (phone: string, fullName?: string, businessName?: string) => void;
   loginWithEmail: (email: string, fullName?: string, businessName?: string) => void;
-  registerNewUser: (payload: CreateAccountPayload) => void;
+  registerNewUser: (payload: CreateAccountPayload, password?: string) => void;
   loginWithUser: (user: UserProfile) => void;
   logout: () => void;
   refreshStatus: () => Promise<void>;
@@ -809,33 +815,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loginWithEmail = (email: string, fullName?: string, businessName?: string) => {
-    const computedName = fullName || email.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() || 'Founder';
-    const newUser: UserProfile = {
-      id: `email_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      email,
-      fullName: computedName,
-      businessName: businessName || `${computedName.split(' ')[0]} Enterprise`,
-      businessType: 'Digital Commerce',
-      country: 'Nigeria',
-      currency: 'NGN',
-      plan: 'PRO',
-      theme: 'default',
-      createdAt: new Date().toISOString(),
-    };
-    setUser(newUser);
-    setCurrencyState(newUser.currency);
-    localStorage.setItem('nexvora_active_user', JSON.stringify(newUser));
+    const existing = findAccountByEmail(email);
+    const profile: UserProfile = existing
+      ? accountToUserProfile(existing)
+      : {
+          id: `email_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          email,
+          fullName: fullName || email.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() || 'Founder',
+          businessName: businessName || `${(fullName || email.split('@')[0]).split(' ')[0]} Enterprise`,
+          businessType: 'Digital Commerce',
+          country: 'Nigeria',
+          currency: 'NGN',
+          plan: 'PRO',
+          theme: 'default',
+          createdAt: new Date().toISOString(),
+        };
+
+    setUser(profile);
+    setCurrencyState(profile.currency);
+    localStorage.setItem('nexvora_active_user', JSON.stringify(profile));
     localStorage.removeItem('nexvora_timed_out');
     localStorage.setItem('nexvora_last_active', Date.now().toString());
     setIsAuthModalOpen(false);
     showToast({
       type: 'success',
       title: 'Signed In',
-      message: `Welcome back, ${newUser.fullName}!`,
+      message: `Welcome back, ${profile.fullName}!`,
     });
   };
 
-  const registerNewUser = (payload: CreateAccountPayload) => {
+  const registerNewUser = (payload: CreateAccountPayload, password = 'nexvora2026') => {
+    registerNewAccount(payload, password);
     const profile = buildUserProfile(payload);
     setUser(profile);
     if (profile.currency) setCurrencyState(profile.currency);

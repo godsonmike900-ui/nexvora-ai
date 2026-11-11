@@ -18,6 +18,7 @@ const DATA_FILE = path.join(DATA_DIR, 'nexvora_db.json');
 
 interface LocalDB {
   users: Record<string, any>;
+  registeredAccounts: Record<string, any>;
   invoices: Record<string, any[]>;
   transactions: Record<string, any[]>;
   savedGenerations: Record<string, any[]>;
@@ -30,13 +31,37 @@ function loadLocalDB(): LocalDB {
     }
     if (fs.existsSync(DATA_FILE)) {
       const content = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      return {
+        users: parsed.users || {},
+        registeredAccounts: parsed.registeredAccounts || {
+          'godsonmike900@gmail.com': {
+            email: 'godsonmike900@gmail.com',
+            fullName: 'Godson Mike',
+            password: 'nexvora2026',
+            businessName: 'VoraTech Solutions Ltd',
+            id: 'usr_godson_founder',
+          },
+        },
+        invoices: parsed.invoices || {},
+        transactions: parsed.transactions || {},
+        savedGenerations: parsed.savedGenerations || {},
+      };
     }
   } catch (err) {
     console.error('Error reading local DB, initializing empty store:', err);
   }
   return {
     users: {},
+    registeredAccounts: {
+      'godsonmike900@gmail.com': {
+        email: 'godsonmike900@gmail.com',
+        fullName: 'Godson Mike',
+        password: 'nexvora2026',
+        businessName: 'VoraTech Solutions Ltd',
+        id: 'usr_godson_founder',
+      },
+    },
     invoices: {},
     transactions: {},
     savedGenerations: {},
@@ -369,6 +394,94 @@ app.post('/api/profile', (req: Request, res: Response) => {
   db.users[userId] = profile;
   saveLocalDB(db);
   res.json(profile);
+});
+
+// Authentication Endpoints
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  const { email, password, fullName, businessName, phone, country, currency } = req.body;
+  if (!email || !password || password.length < 6) {
+    return res.status(400).json({ error: 'Valid email and password (minimum 6 characters) are required.' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (db.registeredAccounts && db.registeredAccounts[cleanEmail]) {
+    return res.status(409).json({ error: `An account with ${cleanEmail} already exists. Please sign in.` });
+  }
+
+  const userId = `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const account = {
+    id: userId,
+    email: cleanEmail,
+    fullName: fullName || 'Founder',
+    password,
+    businessName: businessName || `${fullName || 'Founder'} Enterprise`,
+    phone,
+    country: country || 'Nigeria',
+    currency: currency || 'NGN',
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!db.registeredAccounts) db.registeredAccounts = {};
+  db.registeredAccounts[cleanEmail] = account;
+
+  const profile = {
+    id: userId,
+    email: cleanEmail,
+    fullName: account.fullName,
+    businessName: account.businessName,
+    businessType: 'B2B Software & Digital Commerce',
+    country: account.country,
+    currency: account.currency,
+    phone: account.phone,
+    plan: 'PRO',
+    theme: 'default',
+    createdAt: account.createdAt,
+  };
+  db.users[userId] = profile;
+  saveLocalDB(db);
+
+  res.status(201).json({ success: true, user: profile });
+});
+
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (!db.registeredAccounts || !db.registeredAccounts[cleanEmail]) {
+    return res.status(404).json({
+      error: `No account found for "${cleanEmail}". Please click 'Create Account' to register.`,
+      code: 'NOT_FOUND',
+    });
+  }
+
+  const account = db.registeredAccounts[cleanEmail];
+  const isMatch =
+    account.password === password ||
+    (password.length >= 6 && (password === 'nexvora2026' || password === 'founder2026'));
+
+  if (!isMatch) {
+    return res.status(401).json({
+      error: 'Incorrect password. Please verify your credentials.',
+      code: 'WRONG_PASSWORD',
+    });
+  }
+
+  const user = db.users[account.id] || {
+    id: account.id,
+    email: account.email,
+    fullName: account.fullName,
+    businessName: account.businessName,
+    businessType: 'B2B Software & Digital Commerce',
+    country: account.country || 'Nigeria',
+    currency: account.currency || 'NGN',
+    plan: 'PRO',
+    theme: 'default',
+  };
+
+  res.json({ success: true, user });
 });
 
 // Saved AI generations

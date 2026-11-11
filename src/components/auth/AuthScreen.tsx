@@ -31,6 +31,11 @@ import {
   maskPhoneNumber,
   generateOtpCode,
   buildUserProfile,
+  findAccountByEmail,
+  findAccountByPhone,
+  verifyEmailPassword,
+  registerNewAccount,
+  CreateAccountPayload,
 } from '../../utils/auth';
 import {
   isWebAuthnSupported,
@@ -113,12 +118,16 @@ export const AuthScreen: React.FC = () => {
     setIsLoading(true);
     setErrorMessage(null);
     setTimeout(() => {
-      // Use existing email or prompt fallback to Godson's Google account
       const chosenEmail = loginEmail && isGoogleEmail(loginEmail)
         ? loginEmail
         : 'godsonmike900@gmail.com';
-      const chosenName = chosenEmail.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() || 'Godson Mike';
-      loginWithGoogle(chosenEmail, chosenName);
+      const existing = findAccountByEmail(chosenEmail);
+      if (existing) {
+        loginWithEmail(existing.email, existing.fullName, existing.businessName);
+      } else {
+        const chosenName = chosenEmail.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() || 'Godson Mike';
+        loginWithGoogle(chosenEmail, chosenName);
+      }
       setIsLoading(false);
     }, 450);
   };
@@ -159,6 +168,13 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
+    // Check if phone number is registered
+    const phoneAccount = findAccountByPhone(fullPhone);
+    if (!phoneAccount) {
+      setErrorMessage(`No account found for phone number ${fullPhone}. Please create an account first.`);
+      return;
+    }
+
     setIsLoading(true);
     const code = generateOtpCode();
     setGeneratedOtp(code);
@@ -187,7 +203,12 @@ export const AuthScreen: React.FC = () => {
     setIsLoading(true);
     const fullPhone = `${selectedCountry.code}${rawPhone.trim().replace(/^0+/, '')}`;
     setTimeout(() => {
-      loginWithPhone(fullPhone);
+      const phoneAccount = findAccountByPhone(fullPhone);
+      if (phoneAccount) {
+        loginWithEmail(phoneAccount.email, phoneAccount.fullName, phoneAccount.businessName);
+      } else {
+        loginWithPhone(fullPhone);
+      }
       setIsLoading(false);
     }, 400);
   };
@@ -207,8 +228,21 @@ export const AuthScreen: React.FC = () => {
 
     setIsLoading(true);
     setTimeout(() => {
-      const namePart = loginEmail.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() || 'Founder';
-      loginWithEmail(loginEmail, namePart, `${namePart} Ventures`);
+      const result = verifyEmailPassword(loginEmail, loginPassword);
+      if (!result.success) {
+        setIsLoading(false);
+        if (result.errorReason === 'NOT_FOUND') {
+          setErrorMessage(`No account found for "${loginEmail}". Please create an account first.`);
+        } else if (result.errorReason === 'WRONG_PASSWORD') {
+          setErrorMessage('Incorrect password. Please verify your credentials and try again.');
+        } else {
+          setErrorMessage('Invalid login credentials.');
+        }
+        return;
+      }
+
+      const account = result.account!;
+      loginWithEmail(account.email, account.fullName, account.businessName);
       setIsLoading(false);
     }, 400);
   };
@@ -235,16 +269,32 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
+    // Check if account already exists
+    const existing = findAccountByEmail(signUpEmail);
+    if (existing) {
+      setErrorMessage(`An account with "${signUpEmail}" already exists. Please switch to Sign In.`);
+      return;
+    }
+
     setIsLoading(true);
     setTimeout(() => {
-      registerNewUser({
+      const payload: CreateAccountPayload = {
         fullName: signUpFullName,
         email: signUpEmail,
         phone: signUpPhone || undefined,
         businessName: signUpBusinessName || `${signUpFullName.split(' ')[0]} Enterprise`,
         businessType: signUpBusinessType,
         currency: signUpCurrency,
-      });
+      };
+
+      const reg = registerNewAccount(payload, signUpPassword);
+      if (!reg.success) {
+        setIsLoading(false);
+        setErrorMessage('Could not create account. Please check your details.');
+        return;
+      }
+
+      registerNewUser(payload, signUpPassword);
       setIsLoading(false);
     }, 450);
   };
@@ -353,9 +403,37 @@ export const AuthScreen: React.FC = () => {
 
             {/* Error or Success Notice */}
             {errorMessage && (
-              <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-950/30 p-3 text-xs text-rose-300 flex items-start space-x-2.5 animate-fadeIn">
+              <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-950/40 p-3.5 text-xs text-rose-200 flex items-start space-x-2.5 animate-fadeIn shadow-lg">
                 <AlertCircle className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
-                <span className="flex-1">{errorMessage}</span>
+                <div className="flex-1">
+                  <span>{errorMessage}</span>
+                  {errorMessage.includes('create an account') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('signup');
+                        setSignUpEmail(loginEmail);
+                        setErrorMessage(null);
+                      }}
+                      className="block mt-1 font-bold text-cyan-300 underline hover:text-white cursor-pointer"
+                    >
+                      Click here to Create Account →
+                    </button>
+                  )}
+                  {errorMessage.includes('already exists') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('signin');
+                        setLoginEmail(signUpEmail);
+                        setErrorMessage(null);
+                      }}
+                      className="block mt-1 font-bold text-cyan-300 underline hover:text-white cursor-pointer"
+                    >
+                      Click here to Sign In →
+                    </button>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setErrorMessage(null)}
